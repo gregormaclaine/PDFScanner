@@ -2,8 +2,8 @@ import json
 import os
 import logging
 from openai import OpenAI
-from pydantic import BaseModel, ValidationError
-from typing import Dict, Any
+from pydantic import BaseModel, ValidationError, field_validator
+from typing import Optional, Dict, Any
 
 from dotenv import load_dotenv
 
@@ -17,11 +17,19 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 class DocumentMetadata(BaseModel):
     """Schema validation for extracted document fields."""
-    sender: str = "Unknown Sender"
-    recipient: str = "Unknown Recipient"
-    document_type: str = "Unknown Type"
-    date: str = "Unknown Date"
-    reference: str = "None"
+    sender: Optional[str] = "Unknown Sender"
+    recipient: Optional[str] = "Unknown Recipient"
+    document_type: Optional[str] = "Unknown Type"
+    date: Optional[str] = "Unknown Date"
+    reference: Optional[str] = "None"
+
+    @field_validator('sender', 'recipient', 'document_type', 'date', 'reference', mode='before')
+    @classmethod
+    def coerce_null_to_default(cls, v):
+        """Coerces None or empty string values from the LLM to safe fallback strings."""
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return None  # Let the field default kick in
+        return v
 
 async def parse_document_metadata(ocr_text: str) -> DocumentMetadata:
     """
