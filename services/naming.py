@@ -9,25 +9,32 @@ class DocumentMetadata(BaseModel):
     date: str
     reference: str
 
-def sanitize_extracted_field(field: str, max_length: int = 50) -> str:
+def sanitize_extracted_field(field: str, max_length: int = 30) -> str:
     """
     Sanitizes extracted document text before it is used in filenames to prevent:
     - Path traversal (../../etc/passwd)
     - Injection attacks
     - Metadata poisoning
+    - Overly long filenames from addresses or full descriptions
     """
     if not field:
         return ""
     
-    # 1. LIMIT LENGTH: Prevent oversized filenames/metadata injection
-    sanitized = field[:max_length]
-
-    # 2. ALLOW ONLY SAFE CHARACTERS: Alphanumeric, spaces, dashes only.
-    # This specifically removes dots (.), slashes (/), and other meta-characters.
-    sanitized = re.sub(r'[^a-zA-Z0-9\s\-]', '', sanitized)
+    # 1. ALLOW ONLY SAFE CHARACTERS: Alphanumeric, spaces, dashes only.
+    sanitized = re.sub(r'[^a-zA-Z0-9\s\-]', '', field)
     
-    # 3. NORMALISE WHITESPACE: Remove leading/trailing and consolidate internal spaces
+    # 2. NORMALISE WHITESPACE
     sanitized = " ".join(sanitized.split()).strip()
+
+    # 3. SMART TRUNCATION: Cut at word boundary to avoid splitting mid-word
+    if len(sanitized) > max_length:
+        truncated = sanitized[:max_length]
+        # Step back to the last complete word
+        last_space = truncated.rfind(" ")
+        if last_space > 0:
+            sanitized = truncated[:last_space]
+        else:
+            sanitized = truncated
     
     return sanitized
 
