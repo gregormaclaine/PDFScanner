@@ -59,11 +59,14 @@ class SecurityAuditMiddleware(BaseHTTPMiddleware):
             
         except Exception as e:
             # 4. GLOBAL ERROR SHIELDING (Production-safe)
+            # Logs exception TYPE only — never logs document content
             logger.error("internal_error", extra={
                 "request_id": request_id,
                 "method": request.method,
                 "path": request.url.path,
-                "error": "Internal processing failure", # Don't log specific exception here for security
+                "error": "Internal processing failure",
+                "error_type": type(e).__name__,  # e.g. "ValueError", "TimeoutError" — safe to log
+                "error_detail": str(e)[:200],    # First 200 chars only for diagnosis
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             })
             
