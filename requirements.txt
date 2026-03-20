@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-multipart
+google-cloud-vision
+openai
+python-dotenv
+pydantic>=2.0.0
+pydantic-settings
+PyMuPDF
+python-jose[cryptography]
+bcrypt
+slowapi
+python-magic
+python-json-logger
+email-validator
