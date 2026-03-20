@@ -43,11 +43,13 @@ app = FastAPI(
 )
 
 # --- STEP 2: AUDIT - CORS LOCKDOWN ---
-# Wildcards (*) are strictly forbidden for this environment
-ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost:3000")
+# Multiple allowed origins can be comma-separated in the environment variable
+raw_origins = os.getenv("ALLOWED_ORIGIN", "http://localhost:3000")
+allowed_origins_list = [o.strip() for o in raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[ALLOWED_ORIGIN],
+    allow_origins=allowed_origins_list,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
     allow_credentials=True,
