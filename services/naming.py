@@ -9,6 +9,25 @@ class DocumentMetadata(BaseModel):
     date: str
     reference: str
 
+
+# Common document label words the LLM sometimes includes verbatim
+# Stripped as complete words (case-insensitive) before filename generation
+LABEL_WORDS = {
+    "name", "address", "from", "to", "sender", "recipient", "company",
+    "firm", "client", "customer", "mr", "mrs", "ms", "dr", "prof",
+    "ref", "reference", "date", "invoice", "receipt", "bill", "attn",
+    "attention", "the", "of", "by", "per", "and", "contact"
+}
+
+def strip_label_words(text: str) -> str:
+    """
+    Removes common document label words that the LLM returns verbatim.
+    e.g. "name Cameron Maclaine address" -> "Cameron Maclaine"
+    """
+    words = text.split()
+    filtered = [w for w in words if w.lower() not in LABEL_WORDS]
+    return " ".join(filtered)
+
 def sanitize_extracted_field(field: str, max_length: int = 30) -> str:
     """
     Sanitizes extracted document text before it is used in filenames to prevent:
@@ -16,6 +35,7 @@ def sanitize_extracted_field(field: str, max_length: int = 30) -> str:
     - Injection attacks
     - Metadata poisoning
     - Overly long filenames from addresses or full descriptions
+    - Stray label words from LLM output (name, address, from, etc.)
     """
     if not field:
         return ""
@@ -23,13 +43,15 @@ def sanitize_extracted_field(field: str, max_length: int = 30) -> str:
     # 1. ALLOW ONLY SAFE CHARACTERS: Alphanumeric, spaces, dashes only.
     sanitized = re.sub(r'[^a-zA-Z0-9\s\-]', '', field)
     
-    # 2. NORMALISE WHITESPACE
+    # 2. STRIP COMMON LABEL WORDS
+    sanitized = strip_label_words(sanitized)
+
+    # 3. NORMALISE WHITESPACE
     sanitized = " ".join(sanitized.split()).strip()
 
-    # 3. SMART TRUNCATION: Cut at word boundary to avoid splitting mid-word
+    # 4. SMART TRUNCATION: Cut at word boundary to avoid splitting mid-word
     if len(sanitized) > max_length:
         truncated = sanitized[:max_length]
-        # Step back to the last complete word
         last_space = truncated.rfind(" ")
         if last_space > 0:
             sanitized = truncated[:last_space]
@@ -37,6 +59,7 @@ def sanitize_extracted_field(field: str, max_length: int = 30) -> str:
             sanitized = truncated
     
     return sanitized
+
 
 def generate_pdf_filename(metadata: DocumentMetadata) -> str:
     """
