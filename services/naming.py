@@ -15,8 +15,7 @@ class DocumentMetadata(BaseModel):
 LABEL_WORDS = {
     "name", "address", "from", "to", "sender", "recipient", "company",
     "firm", "client", "customer", "mr", "mrs", "ms", "dr", "prof",
-    "ref", "reference", "date", "invoice", "receipt", "bill", "attn",
-    "attention", "the", "of", "by", "per", "and", "contact"
+    "attn", "attention", "contact"
 }
 
 def strip_label_words(text: str) -> str:
