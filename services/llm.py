@@ -25,11 +25,13 @@ class DocumentMetadata(BaseModel):
 
     @field_validator('sender', 'recipient', 'document_type', 'date', 'reference', mode='before')
     @classmethod
-    def coerce_null_to_default(cls, v):
-        """Coerces None or empty string values from the LLM to safe fallback strings."""
-        if v is None or (isinstance(v, str) and v.strip() == ""):
-            return None  # Let the field default kick in
-        return v
+    def coerce_to_string(cls, v):
+        """Coerces ANY value from the LLM to a safe string — handles null, numbers, lists, dicts."""
+        if v is None:
+            return None  # triggers field default
+        if isinstance(v, str):
+            return v.strip() if v.strip() else None  # empty string → triggers default
+        return str(v)  # convert numbers, lists, dicts etc. to string safely
 
 async def parse_document_metadata(ocr_text: str) -> DocumentMetadata:
     """
@@ -87,8 +89,18 @@ async def parse_document_metadata(ocr_text: str) -> DocumentMetadata:
         return validated_metadata
 
     except ValidationError as ve:
-        # LOGGING AUDIT: Do not log the 'content' or 've' if it contains OCR snippets
-        raise Exception("LLM returned non-compliant metadata schema.")
+        # Schema validation failed — salvage valid string fields, use defaults for the rest
+        # Never raise here — a bad LLM response should NOT crash the pipeline
+        safe_data = {}
+        if isinstance(metadata_dict, dict):
+            for field in ['sender', 'recipient', 'document_type', 'date', 'reference']:
+                val = metadata_dict.get(field)
+                if isinstance(val, str) and val.strip():
+                    safe_data[field] = val.strip()
+                elif val is not None:
+                    safe_data[field] = str(val)[:100]  # coerce non-string to string safely
+        return DocumentMetadata(**safe_data)
     except Exception as e:
-        # LOGGING AUDIT: Sanitized error
-        raise Exception("Failure in document data parsing layer.")
+        # LOGGING AUDIT: Sanitized error — return default metadata rather than crashing
+        return DocumentMetadata()
+
