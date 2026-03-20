@@ -24,7 +24,7 @@ load_dotenv()
 
 # --- STEP 1: FAIL-FAST AUDIT (Ensure all production secrets are loaded) ---
 REQUIRED_VARS = [
-    "INTERNAL_API_KEY", "JWT_SECRET", "GOOGLE_APPLICATION_CREDENTIALS", 
+    "INTERNAL_API_KEY", "JWT_SECRET", 
     "OPENAI_API_KEY", "ADMIN_PASSWORD_HASH", "USER_PASSWORD_HASH"
 ]
 missing_vars = [v for v in REQUIRED_VARS if not os.getenv(v)]
