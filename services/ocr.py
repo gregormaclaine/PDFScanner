@@ -11,10 +11,16 @@ GOOGLE_CREDS_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 # Client logic initialized if needed, but per request we should also check credentials
 def get_vision_client():
+    # AUDIT: Using the EU regional endpoint for data residency (Belgium/europe-west1)
+    client_options = {"api_endpoint": "eu-vision.googleapis.com"}
+    
     if not GOOGLE_CREDS_PATH:
         # Fallback to default auth if path not set
-        return vision.ImageAnnotatorClient()
-    return vision.ImageAnnotatorClient.from_service_account_json(GOOGLE_CREDS_PATH)
+        return vision.ImageAnnotatorClient(client_options=client_options)
+    return vision.ImageAnnotatorClient.from_service_account_json(
+        GOOGLE_CREDS_PATH, 
+        client_options=client_options
+    )
 
 async def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
     """
