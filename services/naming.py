@@ -1,14 +1,5 @@
 import re
-from pydantic import BaseModel
-
-class DocumentMetadata(BaseModel):
-    """Schema for extracted document fields."""
-    sender: str
-    recipient: str
-    document_type: str
-    date: str
-    reference: str
-
+from .llm import DocumentMetadata
 
 # Common document label words the LLM sometimes includes verbatim
 # Stripped as complete words (case-insensitive) before filename generation
@@ -27,7 +18,7 @@ def strip_label_words(text: str) -> str:
     filtered = [w for w in words if w.lower() not in LABEL_WORDS]
     return " ".join(filtered)
 
-def sanitize_extracted_field(field: str, max_length: int = 30) -> str:
+def sanitize_extracted_field(field: str | None, max_length: int = 30) -> str:
     """
     Sanitizes extracted document text before it is used in filenames to prevent:
     - Path traversal (../../etc/passwd)

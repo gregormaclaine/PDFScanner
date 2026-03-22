@@ -11,10 +11,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Required Environment Variables Audit
-SECRET_KEY = os.getenv("JWT_SECRET")
-INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY")
-ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
-USER_PASSWORD_HASH = os.getenv("USER_PASSWORD_HASH")
+SECRET_KEY = os.getenv("JWT_SECRET", "")
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "")
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", "")
+USER_PASSWORD_HASH = os.getenv("USER_PASSWORD_HASH", "")
 
 # Fail on startup if critical secrets are missing
 if not all([SECRET_KEY, INTERNAL_API_KEY, ADMIN_PASSWORD_HASH, USER_PASSWORD_HASH]):
@@ -82,8 +82,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("email")
-        role: str = payload.get("role")
+        email = payload.get("email")
+        role = payload.get("role")
         if email is None or not email.endswith(ALLOWED_DOMAIN) or role not in ["user", "admin"]:
             raise credentials_exception
         return UserPayload(email=email, role=role)
