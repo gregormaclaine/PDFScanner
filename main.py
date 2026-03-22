@@ -68,6 +68,7 @@ setup_rate_limiting(app)
 
 # Configuration settings
 MAX_UPLOAD_SIZE = 25 * 1024 * 1024  # 25MB Enforcement (Increased for large files)
+MAX_TEXT_SIZE = 300_000  # Arbitrary limit (characters) to prevent LLM overload (can be adjusted based on needs)
 
 # --- ROOT & FAVICON REDIRECTS ---
 
@@ -129,30 +130,30 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
     - NO document content logging
     """
 
-    # 1. READ CONTENT ONCE (Memory-only)
-    pdf_content = await file.read()
-    
-    # 2. AUDIT - MIME TYPE VALIDATION
+    # 1. AUDIT - MIME TYPE VALIDATION
     if file.content_type != "application/pdf":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Forbidden file type. Only application/pdf allowed."
         )
+    
+    # 2. AUDIT - SIZE VALIDATION
+    if file.size is None or file.size > MAX_UPLOAD_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File exceeds strictly enforced 10MB limit."
+        )
 
-    # 3. AUDIT - DEEP SIGNATURE VALIDATION (Magic Bytes)
+    # 3. READ CONTENT ONCE (Memory-only)
+    pdf_content = await file.read()
+
+    # 4. AUDIT - DEEP SIGNATURE VALIDATION (Magic Bytes)
     mime_detector = magic.Magic(mime=True)
     detected_mime = mime_detector.from_buffer(pdf_content[:2048]) # Check first 2kb
     if detected_mime != "application/pdf":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File signature mismatch. Document is not a valid PDF."
-        )
-
-    # 4. AUDIT - SIZE VALIDATION
-    if len(pdf_content) > MAX_UPLOAD_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File exceeds strictly enforced 10MB limit."
         )
 
     try:
@@ -164,14 +165,20 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="OCR extraction failure. Ensure the PDF is not encrypted or blank."
             )
+        
+        if len(ocr_text) > MAX_TEXT_SIZE: # Arbitrary limit to prevent LLM overload
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="OCR text exceeds maximum allowed length for processing."
+            )
 
-        # 6. LLM METADATA PARSING (Strict Schema)
+        # 7. LLM METADATA PARSING (Strict Schema)
         metadata: DocumentMetadata = await parse_document_metadata(ocr_text)
 
-        # 7. SECURE NAMING (Input Sanitized)
+        # 8. SECURE NAMING (Input Sanitized)
         sanitized_filename = generate_pdf_filename(metadata)
 
-        # 8. RESPONSE CONSTRUCTION (Security headers)
+        # 9. RESPONSE CONSTRUCTION (Security headers)
         # 1. Create a safe-ASCII fallback for legacy/simple clients
         ascii_fallback = unicodedata.normalize('NFKD', sanitized_filename).encode('ascii', 'ignore').decode('ascii')
         
