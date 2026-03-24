@@ -2,6 +2,7 @@ import io
 import os
 import magic
 import base64
+import unicodedata
 from urllib.parse import quote
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -171,15 +172,17 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         sanitized_filename = generate_pdf_filename(metadata)
 
         # 8. RESPONSE CONSTRUCTION (Security headers)
-        # RFC 5987 compliant filename encoding for non-ASCII characters
+        # 1. Create a safe-ASCII fallback for legacy/simple clients
+        ascii_fallback = unicodedata.normalize('NFKD', sanitized_filename).encode('ascii', 'ignore').decode('ascii')
+        
+        # 2. Modern UTF-8 encoding (RFC 5987) for complex characters
         safe_filename = quote(sanitized_filename)
         
-        # Base64 encode metadata to safely pass non-ASCII JSON in a header
-        metadata_json = metadata.model_dump_json()
-        encoded_metadata = base64.b64encode(metadata_json.encode('utf-8')).decode('utf-8')
+        # 3. Base64 encode metadata (same as before)
+        encoded_metadata = base64.b64encode(metadata.model_dump_json().encode('utf-8')).decode('utf-8')
 
         headers = {
-            "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}",
+            "Content-Disposition": f'attachment; filename="{ascii_fallback}"; filename*=UTF-8\'\'{safe_filename}',
             "X-Document-Metadata": encoded_metadata,
             "Access-Control-Expose-Headers": "Content-Disposition, X-Document-Metadata"
         }
