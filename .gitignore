@@ -30,3 +30,5 @@ __pycache__/
 .Trashes
 ehthumbs.db
 Thumbs.db
+hacker_test.py
+debug_naming.py
