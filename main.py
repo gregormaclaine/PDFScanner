@@ -1,10 +1,13 @@
 import io
 import os
 import magic
+import base64
+from urllib.parse import quote
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, JSONResponse, RedirectResponse
 from dotenv import load_dotenv
+
 
 # --- Local Security, Middleware & Auth Layer ---
 from security.auth import (
@@ -168,9 +171,16 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         sanitized_filename = generate_pdf_filename(metadata)
 
         # 8. RESPONSE CONSTRUCTION (Security headers)
+        # RFC 5987 compliant filename encoding for non-ASCII characters
+        safe_filename = quote(sanitized_filename)
+        
+        # Base64 encode metadata to safely pass non-ASCII JSON in a header
+        metadata_json = metadata.model_dump_json()
+        encoded_metadata = base64.b64encode(metadata_json.encode('utf-8')).decode('utf-8')
+
         headers = {
-            "Content-Disposition": f'attachment; filename="{sanitized_filename}"',
-            "X-Document-Metadata": metadata.model_dump_json(),
+            "Content-Disposition": f"attachment; filename*=UTF-8''{safe_filename}",
+            "X-Document-Metadata": encoded_metadata,
             "Access-Control-Expose-Headers": "Content-Disposition, X-Document-Metadata"
         }
 
