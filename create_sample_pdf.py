@@ -1,4 +1,4 @@
-import fitz
+import fitz  # type: ignore
 import sys
 
 def create_sample_pdf(filename="sample_invoice.pdf"):

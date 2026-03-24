@@ -44,7 +44,7 @@ async def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
     # For a completely stateless version without GCS, we can convert PDF pages to images.
     
     # I'll use PyMuPDF to convert PDF to images in memory before passing to Vision for individual OCR.
-    import fitz # PyMuPDF
+    import fitz  # type: ignore # PyMuPDF
     
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     all_text = []

@@ -13,8 +13,8 @@ class DocumentMetadata(BaseModel):
 # Common document label words the LLM sometimes includes verbatim
 # Stripped as complete words (case-insensitive) before filename generation
 LABEL_WORDS = {
-    "name", "address", "from", "to", "sender", "recipient", "company",
-    "firm", "client", "customer", "mr", "mrs", "ms", "dr", "prof",
+    "name", "address", "from", "to", "sender", "recipient",
+    "mr", "mrs", "ms", "dr", "prof",
     "attn", "attention", "contact"
 }
 

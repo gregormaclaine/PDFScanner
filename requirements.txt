@@ -13,3 +13,4 @@ slowapi
 python-magic
 python-json-logger
 email-validator
+requests
