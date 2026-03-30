@@ -30,5 +30,13 @@ __pycache__/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Test scripts and scratch files
 hacker_test.py
 debug_naming.py
+reproduce_issue*.py
+create_sample_pdf.py
+list_models.py
+util_hash.py
+test_*.py
+scratch_*.py

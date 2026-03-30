@@ -36,16 +36,21 @@ def sanitize_extracted_field(field: str, max_length: int = 30) -> str:
     - Overly long filenames from addresses or full descriptions
     - Stray label words from LLM output (name, address, from, etc.)
     """
-    if not field:
-        return ""
+    # 1. SPLIT CONCATENATED TITLE PREFIXES (e.g. "MrIA" -> "Mr IA")
+    # This ensures titles are identified as separate words even if spaces are missing.
+    sanitized = re.sub(r'\b(Mr|Mrs|Ms|Dr|Prof)([A-Z])', r'\1 \2', field, flags=re.IGNORECASE)
+
+    # 2. REPLACE PUNCTUATION WITH SPACES TO PREVENT CONCATENATION:
+    # e.g. "Mr.I.A. Anderson" -> "Mr I A Anderson"
+    sanitized = re.sub(r'[./_:]', ' ', sanitized)
     
-    # 1. ALLOW ONLY SAFE CHARACTERS: Alphanumeric, spaces, dashes only.
-    sanitized = re.sub(r'[^a-zA-Z0-9\s\-]', '', field)
+    # 3. ALLOW ONLY SAFE CHARACTERS: Alphanumeric, spaces, dashes only.
+    sanitized = re.sub(r'[^a-zA-Z0-9\s\-]', '', sanitized)
     
-    # 2. STRIP COMMON LABEL WORDS
+    # 4. STRIP COMMON LABEL WORDS
     sanitized = strip_label_words(sanitized)
 
-    # 3. NORMALISE WHITESPACE
+    # 5. NORMALISE WHITESPACE
     sanitized = " ".join(sanitized.split()).strip()
 
     # 4. SMART TRUNCATION: Cut at word boundary to avoid splitting mid-word

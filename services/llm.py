@@ -60,9 +60,11 @@ async def parse_document_metadata(ocr_text: str) -> DocumentMetadata:
     - reference
 
     RULES:
-    - SPECIAL CASE: For Tax Authority letters (e.g. HMRC), the sender is "HMRC". The recipient is the ACTUAL client, not the accountant's address at the top.
+    - SENDER IDENTIFICATION (PRIMARY): The sender is the organization shown in the letterhead/header at the top or the one that signed the document at the bottom (e.g., after "Yours sincerely").
+    - TAX AUTHORITY DEBT COLLECTORS: If a third-party agency (e.g., Advantis, Zenith, or a solicitor) is writing to collect a debt on behalf of HMRC or another Tax Authority, the THIRD-PARTY AGENCY is the sender, not the Tax Authority.
+    - SPECIAL CASE (HMRC): If the letter is DIRECTLY from HMRC, the sender is "HMRC". The recipient is the ACTUAL client, not the accountant's address at the top.
     - SALUTATION RULE: If a name appears immediately after or below a salutation like "Dear Sir or Madam", "Dear Mr/Mrs", or similar, that person is the primary RECIPIENT.
-    - DOCUMENT IDENTIFICATION: Look for keywords like "Invoice", "Receipt", "Confirmation Statement", or "Notice" to determine the document_type.
+    - DOCUMENT IDENTIFICATION: Look for keywords like "Invoice", "Receipt", "Confirmation Statement", "Notice", or "Letter" to determine the document_type.
     - If a field is missing, use empty string "".
     - ONLY output the JSON object. No narrative or chat markers.
     """
