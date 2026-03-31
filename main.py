@@ -2,6 +2,7 @@ import io
 import os
 import magic
 import base64
+import hashlib
 import unicodedata
 from urllib.parse import quote
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status, Request
@@ -86,7 +87,7 @@ async def health_check():
 @app.post("/login", 
           response_model=Token, 
           tags=["Authentication"])
-@limiter.limit("5 per minute")
+@limiter.limit("20 per minute") # Increased for bulk tool compatibility
 async def login(request: Request, login_data: LoginRequest):
     """
     Secure login endpoint for internal staff.
@@ -131,6 +132,7 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
 
     # 1. READ CONTENT ONCE (Memory-only)
     pdf_content = await file.read()
+    pdf_hash = hashlib.md5(pdf_content).hexdigest() # Secure fingerprint for filename uniqueness
     
     # 2. AUDIT - MIME TYPE VALIDATION
     if file.content_type != "application/pdf":
@@ -152,7 +154,7 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
     if len(pdf_content) > MAX_UPLOAD_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File exceeds strictly enforced 10MB limit."
+            detail="File exceeds strictly enforced 25MB limit."
         )
 
     try:
@@ -168,8 +170,8 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         # 6. LLM METADATA PARSING (Strict Schema)
         metadata: DocumentMetadata = await parse_document_metadata(ocr_text)
 
-        # 7. SECURE NAMING (Input Sanitized)
-        sanitized_filename = generate_pdf_filename(metadata)
+        # 7. SECURE NAMING (Input Sanitized with uniqueness hash)
+        sanitized_filename = generate_pdf_filename(metadata, content_hash=pdf_hash)
 
         # 8. RESPONSE CONSTRUCTION (Security headers)
         # 1. Create a safe-ASCII fallback for legacy/simple clients
