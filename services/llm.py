@@ -76,8 +76,10 @@ async def parse_document_metadata(ocr_text: str) -> DocumentMetadata:
     - SENDER IDENTIFICATION (PRIMARY): The sender is the organization shown in the letterhead/header at the top or the one that signed the document at the bottom (e.g., after "Yours sincerely").
     - TAX AUTHORITY DEBT COLLECTORS: If a third-party agency (e.g., Advantis, Zenith, or a solicitor) is writing to collect a debt on behalf of HMRC or another Tax Authority, the THIRD-PARTY AGENCY is the sender, not the Tax Authority.
     - SPECIAL CASE (HMRC): If the letter is DIRECTLY from HMRC, the sender is "HMRC". The recipient is the ACTUAL client, not the accountant's address at the top.
+    - SPECIAL CASE (COMPANIES HOUSE): If the document is from Companies House (e.g., Certificate of Incorporation, Confirmation Statement, Change of Registered Office, Annual Return, or any filing acknowledgement), the sender is "Companies House". The RECIPIENT is the COMPANY NAME — look for the name that appears prominently (often in bold or uppercase) and typically ends with "Ltd", "Limited", "LLP", "PLC", or "CIC". Do NOT use a person's name as the recipient for Companies House documents unless no company name is present.
+    - FIRM PARTNERS EXCLUSION: The following names are partners of the accounting firm and should NEVER be used as the recipient: "Daniel Korn", "Dan Korn", "Charlotte Harris", "Chris Fowler". If one of these names appears as the addressee, IGNORE it and look for the actual client name elsewhere in the document (e.g., in the salutation, subject line, "RE:" field, or body text). If no other name can be found, use the company/organisation name mentioned in the letter.
     - SALUTATION RULE: If a name appears immediately after or below a salutation like "Dear Sir or Madam", "Dear Mr/Mrs", or similar, that person is the primary RECIPIENT.
-    - DOCUMENT IDENTIFICATION: Look for keywords like "Invoice", "Receipt", "Confirmation Statement", "Notice", or "Letter" to determine the document_type.
+    - DOCUMENT IDENTIFICATION: Look for keywords like "Invoice", "Receipt", "Confirmation Statement", "Notice", "Certificate", "Incorporation", or "Letter" to determine the document_type.
     - If a field is missing, use empty string "".
     - ONLY output the JSON object. No narrative or chat markers.
     """
