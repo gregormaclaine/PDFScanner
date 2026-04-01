@@ -27,7 +27,7 @@ def strip_label_words(text: str) -> str:
     filtered = [w for w in words if w.lower() not in LABEL_WORDS]
     return " ".join(filtered)
 
-def sanitize_extracted_field(field: str, max_length: int = 30) -> str:
+def sanitize_extracted_field(field: str | None, max_length: int = 30) -> str:
     """
     Sanitizes extracted document text before it is used in filenames to prevent:
     - Path traversal (../../etc/passwd)
@@ -36,6 +36,10 @@ def sanitize_extracted_field(field: str, max_length: int = 30) -> str:
     - Overly long filenames from addresses or full descriptions
     - Stray label words from LLM output (name, address, from, etc.)
     """
+    # Guard: None/empty fields return empty string immediately — prevents regex crash
+    if not field:
+        return ""
+
     # 1. SPLIT CONCATENATED TITLE PREFIXES (e.g. "MrIA" -> "Mr IA")
     # This ensures titles are identified as separate words even if spaces are missing.
     sanitized = re.sub(r'\b(Mr|Mrs|Ms|Dr|Prof)([A-Z])', r'\1 \2', field, flags=re.IGNORECASE)

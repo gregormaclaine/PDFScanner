@@ -2,7 +2,7 @@ import json
 import os
 import logging
 from openai import OpenAI
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, ValidationError, field_validator, ValidationInfo
 from typing import Optional, Dict, Any
 
 from dotenv import load_dotenv
@@ -15,22 +15,35 @@ LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# Maps field name → its safe fallback string
+_FIELD_DEFAULTS: dict = {
+    "sender": "Unknown Sender",
+    "recipient": "Unknown Recipient",
+    "document_type": "Unknown Type",
+    "date": "Unknown Date",
+    "reference": "None",
+}
+
 class DocumentMetadata(BaseModel):
     """Schema validation for extracted document fields."""
-    sender: Optional[str] = "Unknown Sender"
-    recipient: Optional[str] = "Unknown Recipient"
-    document_type: Optional[str] = "Unknown Type"
-    date: Optional[str] = "Unknown Date"
-    reference: Optional[str] = "None"
+    sender: str = "Unknown Sender"
+    recipient: str = "Unknown Recipient"
+    document_type: str = "Unknown Type"
+    date: str = "Unknown Date"
+    reference: str = "None"
 
     @field_validator('sender', 'recipient', 'document_type', 'date', 'reference', mode='before')
     @classmethod
-    def coerce_to_string(cls, v):
-        """Coerces ANY value from the LLM to a safe string — handles null, numbers, lists, dicts."""
-        if v is None:
-            return None  # triggers field default
+    def coerce_to_string(cls, v, info: ValidationInfo):
+        """Coerces ANY value from the LLM to a safe string — handles null, numbers, lists, dicts.
+        
+        IMPORTANT: Always returns a concrete string. Returning None or "" does NOT trigger
+        field defaults in Pydantic v2, so we resolve the fallback ourselves via _FIELD_DEFAULTS.
+        """
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return _FIELD_DEFAULTS.get(info.field_name, "")
         if isinstance(v, str):
-            return v.strip() if v.strip() else None  # empty string → triggers default
+            return v.strip()
         return str(v)  # convert numbers, lists, dicts etc. to string safely
 
 async def parse_document_metadata(ocr_text: str) -> DocumentMetadata:
