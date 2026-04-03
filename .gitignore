@@ -39,9 +39,6 @@ service-account*.json
 ehthumbs.db
 Thumbs.db
 
-hacker_test.py
-debug_naming.py
-
 # Logs
 logs
 *.log
@@ -50,3 +47,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+
+# Test scripts and scratch files
+hacker_test.py
+debug_naming.py
+reproduce_issue*.py
+create_sample_pdf.py
+list_models.py
+util_hash.py
+test_*.py
+scratch_*.py

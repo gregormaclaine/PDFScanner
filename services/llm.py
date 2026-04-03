@@ -2,7 +2,7 @@ import json
 import os
 import logging
 from openai import OpenAI
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, ValidationError, field_validator, ValidationInfo
 from typing import Optional, Dict, Any
 
 from dotenv import load_dotenv
@@ -15,22 +15,35 @@ LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# Maps field name → its safe fallback string
+_FIELD_DEFAULTS: dict = {
+    "sender": "Unknown Sender",
+    "recipient": "Unknown Recipient",
+    "document_type": "Unknown Type",
+    "date": "Unknown Date",
+    "reference": "None",
+}
+
 class DocumentMetadata(BaseModel):
     """Schema validation for extracted document fields."""
-    sender: Optional[str] = "Unknown Sender"
-    recipient: Optional[str] = "Unknown Recipient"
-    document_type: Optional[str] = "Unknown Type"
-    date: Optional[str] = "Unknown Date"
-    reference: Optional[str] = "None"
+    sender: str = "Unknown Sender"
+    recipient: str = "Unknown Recipient"
+    document_type: str = "Unknown Type"
+    date: str = "Unknown Date"
+    reference: str = "None"
 
     @field_validator('sender', 'recipient', 'document_type', 'date', 'reference', mode='before')
     @classmethod
-    def coerce_to_string(cls, v):
-        """Coerces ANY value from the LLM to a safe string — handles null, numbers, lists, dicts."""
-        if v is None:
-            return None  # triggers field default
+    def coerce_to_string(cls, v, info: ValidationInfo):
+        """Coerces ANY value from the LLM to a safe string — handles null, numbers, lists, dicts.
+        
+        IMPORTANT: Always returns a concrete string. Returning None or "" does NOT trigger
+        field defaults in Pydantic v2, so we resolve the fallback ourselves via _FIELD_DEFAULTS.
+        """
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return _FIELD_DEFAULTS.get(info.field_name, "")
         if isinstance(v, str):
-            return v.strip() if v.strip() else None  # empty string → triggers default
+            return v.strip()
         return str(v)  # convert numbers, lists, dicts etc. to string safely
 
 async def parse_document_metadata(ocr_text: str) -> DocumentMetadata:
@@ -60,6 +73,13 @@ async def parse_document_metadata(ocr_text: str) -> DocumentMetadata:
     - reference
 
     RULES:
+    - SENDER IDENTIFICATION (PRIMARY): The sender is the organization shown in the letterhead/header at the top or the one that signed the document at the bottom (e.g., after "Yours sincerely").
+    - TAX AUTHORITY DEBT COLLECTORS: If a third-party agency (e.g., Advantis, Zenith, or a solicitor) is writing to collect a debt on behalf of HMRC or another Tax Authority, the THIRD-PARTY AGENCY is the sender, not the Tax Authority.
+    - SPECIAL CASE (HMRC): If the letter is DIRECTLY from HMRC, the sender is "HMRC". The recipient is the ACTUAL client, not the accountant's address at the top.
+    - SPECIAL CASE (COMPANIES HOUSE): If the document is from Companies House (e.g., Certificate of Incorporation, Confirmation Statement, Change of Registered Office, Annual Return, or any filing acknowledgement), the sender is "Companies House". The RECIPIENT is the COMPANY NAME — look for the name that appears prominently (often in bold or uppercase) and typically ends with "Ltd", "Limited", "LLP", "PLC", or "CIC". Do NOT use a person's name as the recipient for Companies House documents unless no company name is present.
+    - FIRM PARTNERS EXCLUSION: The following names are partners of the accounting firm and should NEVER be used as the recipient: "Daniel Korn", "Dan Korn", "Charlotte Harris", "Chris Fowler". If one of these names appears as the addressee, IGNORE it and look for the actual client name elsewhere in the document (e.g., in the salutation, subject line, "RE:" field, or body text). If no other name can be found, use the company/organisation name mentioned in the letter.
+    - SALUTATION RULE: If a name appears immediately after or below a salutation like "Dear Sir or Madam", "Dear Mr/Mrs", or similar, that person is the primary RECIPIENT.
+    - DOCUMENT IDENTIFICATION: Look for keywords like "Invoice", "Receipt", "Confirmation Statement", "Notice", "Certificate", "Incorporation", or "Letter" to determine the document_type.
     - If a field is missing, use empty string "".
     - ONLY output the JSON object. No narrative or chat markers.
     """

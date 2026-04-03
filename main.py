@@ -2,6 +2,7 @@ import io
 import os
 import magic
 import base64
+import hashlib
 import unicodedata
 from urllib.parse import quote
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, status, Request
@@ -87,7 +88,7 @@ async def health_check():
 @app.post("/login", 
           response_model=Token, 
           tags=["Authentication"])
-@limiter.limit("5 per minute")
+@limiter.limit("20 per minute") # Increased for bulk tool compatibility
 async def login(request: Request, login_data: LoginRequest):
     """
     Secure login endpoint for internal staff.
@@ -141,11 +142,12 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
     if file.size is None or file.size > MAX_UPLOAD_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File exceeds strictly enforced 10MB limit."
+            detail="File exceeds strictly enforced 25MB limit."
         )
 
     # 3. READ CONTENT ONCE (Memory-only)
     pdf_content = await file.read()
+    pdf_hash = hashlib.md5(pdf_content).hexdigest() # Secure fingerprint for filename uniqueness
 
     # 4. AUDIT - DEEP SIGNATURE VALIDATION (Magic Bytes)
     mime_detector = magic.Magic(mime=True)
@@ -176,7 +178,7 @@ async def upload_pdf(request: Request, file: UploadFile = File(...)):
         metadata: DocumentMetadata = await parse_document_metadata(ocr_text)
 
         # 8. SECURE NAMING (Input Sanitized)
-        sanitized_filename = generate_pdf_filename(metadata)
+        sanitized_filename = generate_pdf_filename(metadata, content_hash=pdf_hash)
 
         # 9. RESPONSE CONSTRUCTION (Security headers)
         # 1. Create a safe-ASCII fallback for legacy/simple clients
